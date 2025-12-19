@@ -495,6 +495,14 @@ function drawBoard(boardState, selectedPieceCoords) {
 
     svg.appendChild(defs);
 
+    // Calculate valid moves for highlighting
+    const currentPlayerColor = currentGameState.players.find(p => p.userId === currentUser.uid)?.color;
+    const isSinglePlayerGame = currentGameState.players.length === 1;
+    let moves = [];
+    if (selectedPieceCoords && (currentGameState.turn === currentPlayerColor || isSinglePlayerGame)) {
+        moves = calculateValidMoves(selectedPieceCoords, boardState);
+    }
+
     // 1. Draw all 121 Pegs
     for (const key of PEG_MAP.keys()) {
         const { q, r } = keyToCoord(key);
@@ -505,6 +513,9 @@ function drawBoard(boardState, selectedPieceCoords) {
         peg.setAttribute("cy", y);
         peg.setAttribute("r", PEG_RADIUS);
         peg.classList.add("peg");
+        if (moves.includes(key)) {
+            peg.classList.add("valid-move-hole");
+        }
         peg.dataset.coords = key;
         svg.appendChild(peg);
 
@@ -524,25 +535,6 @@ function drawBoard(boardState, selectedPieceCoords) {
                 piece.classList.add('piece-selected');
             }
         }
-    }
-
-    // 3. Highlight Valid Moves
-    const currentPlayerColor = currentGameState.players.find(p => p.userId === currentUser.uid)?.color;
-    const isSinglePlayerGame = currentGameState.players.length === 1;
-    if (selectedPieceCoords && (currentGameState.turn === currentPlayerColor || isSinglePlayerGame)) {
-        const moves = calculateValidMoves(selectedPieceCoords, boardState);
-        moves.forEach(key => {
-            const { q, r } = keyToCoord(key);
-            const { x, y } = axialToPixel(q, r);
-            let highlight = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-            highlight.setAttribute("cx", x);
-            highlight.setAttribute("cy", y);
-            highlight.setAttribute("r", PIECE_RADIUS * 0.9);
-            highlight.setAttribute("fill", "transparent");
-            highlight.classList.add("move-highlight");
-            highlight.dataset.coords = key;
-            svg.appendChild(highlight);
-        });
     }
 }
 
