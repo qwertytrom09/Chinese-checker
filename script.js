@@ -626,10 +626,146 @@ function checkWinCondition(boardState, color) {
     return WIN_POSITIONS[color].every(key => boardState[key] === color);
 }
 
+/**
+ * Calculates the path a piece takes to move from start to end.
+ */
+function getMovePath(startKey, endKey, boardState) {
+    if (startKey === endKey) return [startKey];
+
+    const visited = new Set();
+    const queue = [startKey];
+    const parent = new Map();
+    visited.add(startKey);
+    parent.set(startKey, null);
+
+    let found = false;
+
+    while (queue.length > 0 && !found) {
+        const currentKey = queue.shift();
+        const currentCoord = keyToCoord(currentKey);
+
+        DIRECTIONS.forEach(dir => {
+            // Single steps
+            const neighborKey = coordKey(currentCoord.q + dir.q, currentCoord.r + dir.r);
+            if (isValidPeg(neighborKey) && !boardState[neighborKey] && !visited.has(neighborKey)) {
+                visited.add(neighborKey);
+                queue.push(neighborKey);
+                parent.set(neighborKey, currentKey);
+                if (neighborKey === endKey) found = true;
+            }
+
+            // Jumps
+            for (let M = 1; M <= 4; M++) {
+                const jumpedKey = coordKey(currentCoord.q + dir.q * M, currentCoord.r + dir.r * M);
+                const landingKey = coordKey(currentCoord.q + dir.q * 2 * M, currentCoord.r + dir.r * 2 * M);
+
+                if (boardState[jumpedKey] && isValidPeg(landingKey) && !boardState[landingKey] && !visited.has(landingKey)) {
+                    // Check empty between
+                    let allEmpty = true;
+                    for (let k = 1; k < M; k++) {
+                        const betweenKey = coordKey(currentCoord.q + dir.q * k, currentCoord.r + dir.r * k);
+                        if (boardState[betweenKey] || !isValidPeg(betweenKey)) {
+allEmpty = false;
+                            break;
+                        }
+                    }
+                    for (let k = M + 1; k < 2 * M; k++) {
+                        const betweenKey = coordKey(currentCoord.q + dir.q * k, currentCoord.r + dir.r * k);
+                        if (boardState[betweenKey] || !isValidPeg(betweenKey)) {
+                            allEmpty = false;
+                            break;
+                        }
+                    }
+                    if (allEmpty) {
+                        visited.add(landingKey);
+                        queue.push(landingKey);
+                        parent.set(landingKey, currentKey);
+                        if (landingKey === endKey) found = true;
+                    }
+                }
+            }
+        });
+    }
+
+    if (!found) return null;
+
+    // Reconstruct path
+    const path = [];
+    let current = endKey;
+    while (current !== null) {
+        path.unshift(current);
+        current = parent.get(current);
+    }
+    return path;
+}
+
+/**
+ * Animates a piece moving along a path of positions.
+ */
+function animatePieceMove(path) {
+    return new Promise((resolve) => {
+        if (!path || path.length < 2) {
+            resolve();
+            return;
+        }
+
+        const pieceElement = document.getElementById(`piece-${path[0]}`);
+        if (!pieceElement) {
+            resolve();
+            return;
+        }
+
+        let currentIndex = 0;
+
+        function animateSegment() {
+            if (currentIndex >= path.length - 1) {
+                resolve();
+                return;
+            }
+
+            const startKey = path[currentIndex];
+            const endKey = path[currentIndex + 1];
+            const startCoord = keyToCoord(startKey);
+            const endCoord = keyToCoord(endKey);
+            const startPos = axialToPixel(startCoord.q, startCoord.r);
+            const endPos = axialToPixel(endCoord.q, endCoord.r);
+
+            const duration = 1000; // 1 second per segment
+            const startTime = performance.now();
+
+            function animate(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+
+                const currentX = startPos.x + (endPos.x - startPos.x) * progress;
+                const currentY = startPos.y + (endPos.y - startPos.y) * progress;
+
+                pieceElement.setAttribute('cx', currentX);
+                pieceElement.setAttribute('cy', currentY);
+
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                } else {
+                    currentIndex++;
+                    animateSegment();
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        animateSegment();
+    });
+}
+
 
 // --- 6. EVENT HANDLERS (The Functional Interaction) ---
 
 async function executeGameMove(origin, destination) {
+    // Calculate the move path and animate along it
+    const path = getMovePath(origin, destination, currentGameState.boardState);
+    await animatePieceMove(path);
+
     // 1. Update the board state
     const newBoardState = { ...currentGameState.boardState };
     const pieceColor = newBoardState[origin];
