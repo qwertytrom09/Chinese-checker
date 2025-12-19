@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sophisticated Chinese Checkers</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header>
+        <h1>Chinese Checkers Online</h1>
+        <div id="auth-status">
+            <span id="user-info">Connecting...</span>
+            <button id="logout-button" style="display:none;">Log Out</button>
+        </div>
+    </header>
+
+    <main>
+        <section id="game-lobby">
+            <h2>Game Lobby</h2>
+            <p>Your Anonymous ID: <span id="user-uid">N/A</span></p>
+            <div id="game-controls">
+                <div id="create-game-section">
+                    <select id="player-count-select">
+                        <option value="2">2 Players</option>
+                        <option value="3">3 Players</option>
+                        <option value="4">4 Players</option>
+                        <option value="6" selected>6 Players</option>
+                    </select>
+                    <button id="create-game-btn" disabled>Create Game</button>
+                </div>
+                <div id="join-game">
+                    <input type="text" id="game-id-input" placeholder="Enter Game ID">
+                    <button id="join-game-btn" disabled>Join Game</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="game-board-container" style="display:none;">
+            <div id="game-info">
+                <h3 id="current-turn-display">Waiting for players...</h3>
+                <p id="game-id-display" style="display:none;">Game ID: <span id="current-game-id"></span>
+                    <button id="copy-link-btn">Copy Link</button>
+                    <button id="fullscreen-board-btn" title="Toggle Fullscreen Board">⛶</button>
+                </p>
+                <button id="leave-game-btn">Leave Game</button>
+            </div>
+
+            <svg id="chinese-checkers-board" viewBox="0 0 1000 870"></svg>
+        </section>
+    </main>
+
+    <script type="module" src="script.js"></script>
+</body>
+</html>
