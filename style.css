@@ -180,6 +180,15 @@ main {
     opacity: 0.8;
 }
 
+#game-settings {
+    margin-top: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
 #game-controls div {
     margin-top: 20px;
     display: flex;
@@ -351,6 +360,11 @@ input[type="text"]::placeholder {
     border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(10px);
+}
+
+#game-info #game-settings {
+    margin-top: 10px;
+    margin-bottom: 10px;
 }
 
 #current-turn-display {

@@ -33,6 +33,7 @@ let currentUser = null;
 let currentGameId = null;
 let unsubscribeGameListener = null;
 let currentGameState = null;
+let highlightHoles = true;
 
 const PLAYER_COLORS = ['red', 'green', 'yellow', 'blue', 'black', 'white']; // Order matching initialization peaks
 
@@ -157,7 +158,8 @@ async function createNewGame(maxPlayers = 6) {
             boardState: initializeBoard(maxPlayers),
             selectedPiece: null,
             moveHistory: [],
-            winner: null
+            winner: null,
+            highlightHoles: true
         };
 
         console.log('Creating game with state:', initialGameState);
@@ -243,6 +245,9 @@ function handleGameUpdate(gameState) {
     }
 
     document.getElementById('current-turn-display').textContent = displayText;
+
+    // Sync highlight toggle with game state
+    document.getElementById('highlight-toggle').checked = gameState.highlightHoles;
 
     drawBoard(gameState.boardState, gameState.selectedPiece);
 }
@@ -513,7 +518,7 @@ function drawBoard(boardState, selectedPieceCoords) {
         peg.setAttribute("cy", y);
         peg.setAttribute("r", PEG_RADIUS);
         peg.classList.add("peg");
-        if (moves.includes(key)) {
+        if (moves.includes(key) && currentGameState.highlightHoles) {
             peg.classList.add("valid-move-hole");
         }
         peg.dataset.coords = key;
@@ -923,6 +928,65 @@ window.addEventListener('resize', () => {
 document.addEventListener('DOMContentLoaded', () => {
     handleWindowResize();
 });
+
+// --- SETTINGS MANAGEMENT ---
+
+// Load settings from localStorage (fallback)
+highlightHoles = localStorage.getItem('highlightHoles') !== 'false'; // default true
+document.getElementById('highlight-toggle').checked = highlightHoles;
+
+// Event listener for highlight toggle
+document.getElementById('highlight-toggle').addEventListener('change', (e) => {
+    if (currentGameId) {
+        // Update game-wide setting
+        update(ref(db, "games/" + currentGameId), { highlightHoles: e.target.checked });
+    } else {
+        // Update global setting for when not in a game
+        highlightHoles = e.target.checked;
+        localStorage.setItem('highlightHoles', highlightHoles.toString());
+    }
+});
+
+// Load user preferences from database when authenticated
+function loadUserPreferences() {
+    if (currentUser) {
+        const userRef = ref(db, "users/" + currentUser.uid);
+        get(userRef).then((snapshot) => {
+            if (snapshot.exists()) {
+                const prefs = snapshot.val();
+                if (prefs.highlightHoles !== undefined) {
+                    highlightHoles = prefs.highlightHoles;
+                    document.getElementById('highlight-toggle').checked = highlightHoles;
+                    localStorage.setItem('highlightHoles', highlightHoles.toString());
+                }
+            }
+        });
+    }
+}
+
+// Call when auth state changes
+function onAuthStateChangedEnhanced(user) {
+    const userInfo = document.getElementById('user-info');
+    const userUidSpan = document.getElementById('user-uid');
+    const logoutBtn = document.getElementById('logout-button');
+
+    if (user) {
+        currentUser = user;
+        userInfo.textContent = `Signed in (Anonymous)`;
+        userUidSpan.textContent = user.uid.substring(0, 8) + '...';
+        logoutBtn.style.display = 'block';
+        enableGameControls(true);
+        loadUserPreferences(); // Load user preferences
+    } else {
+        currentUser = null;
+        userInfo.textContent = `Signing in...`;
+        logoutBtn.style.display = 'none';
+        enableGameControls(false);
+    }
+}
+
+// Replace the original onAuthStateChanged call
+onAuthStateChanged(auth, onAuthStateChangedEnhanced);
 
 // --- START THE APP ---
 setupAuthListener();
