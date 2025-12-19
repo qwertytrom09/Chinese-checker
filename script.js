@@ -767,9 +767,9 @@ function toggleBoardFullscreen() {
         boardElement.style.position = 'absolute';
         boardElement.style.top = '0';
         boardElement.style.left = '0';
-        boardElement.style.width = `${window.innerWidth}px`;
-        boardElement.style.height = `${window.innerHeight}px`;
-        boardElement.style.padding = '30px 0 0 0';
+        boardElement.style.width = '95%';
+        boardElement.style.height = '95%';
+        boardElement.style.padding = '20px 0 0 0';
         boardElement.style.border = 'none';
         boardElement.style.transform = 'none';
         boardElement.style.marginTop = '0';
