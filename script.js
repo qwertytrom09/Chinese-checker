@@ -231,10 +231,28 @@ function handleGameUpdate(gameState) {
     }
 
     let displayText = `Game Status: ${gameState.status}`;
+    let fullscreenText = 'WAITING FOR PLAYERS...';
+
     if (gameState.status === 'finished' && gameState.winner) {
         displayText += `. Winner: ${gameState.winner}`;
+        fullscreenText = `🏆 WINNER: ${gameState.winner.toUpperCase()}! 🏆`;
+
+        // Check if current user won
+        const currentPlayerColor = gameState.players.find(p => p.userId === currentUser.uid)?.color;
+        const isSinglePlayerGame = gameState.players.length === 1;
+        if (isSinglePlayerGame || gameState.winner === currentPlayerColor) {
+            // If in fullscreen, exit fullscreen first
+            if (document.fullscreenElement) {
+                exitFullscreen().then(() => {
+                    showWinModal(gameState.winner);
+                });
+            } else {
+                showWinModal(gameState.winner);
+            }
+        }
     } else if (gameState.status === 'in-progress') {
         const currentPlayerColor = gameState.players.find(p => p.userId === currentUser.uid)?.color;
+        fullscreenText = `TURN: ${gameState.turn.toUpperCase()}`;
         if (gameState.turn === currentPlayerColor) {
             displayText += `. Your turn (${gameState.turn})`;
         } else {
@@ -244,8 +262,24 @@ function handleGameUpdate(gameState) {
 
     document.getElementById('current-turn-display').textContent = displayText;
 
+    // Update fullscreen turn overlay
+    const turnOverlay = document.getElementById('fullscreen-turn-overlay');
+    const turnText = document.getElementById('fullscreen-turn-text');
+    if (turnOverlay && turnText) {
+        if (gameState.status === 'in-progress' || gameState.status === 'finished') {
+            turnText.textContent = fullscreenText;
+            turnOverlay.style.display = 'block';
+        } else {
+            turnOverlay.style.display = 'none';
+        }
+    }
+
     drawBoard(gameState.boardState, gameState.selectedPiece);
 }
+
+
+
+
 
 // --- 4. BOARD GEOMETRY AND DRAWING (Axial Coordinates) ---
 
@@ -573,7 +607,7 @@ function calculateValidMoves(startKey, boardState) {
         }
     });
 
-    // 2. Jump chains (BFS)
+    // 2. Jump chains (BFS) - only allow jumps over adjacent pieces
     const hopQueue = [startKey];
     visitedHopDestinations.add(startKey);
 
@@ -582,39 +616,17 @@ function calculateValidMoves(startKey, boardState) {
         const currentCoord = keyToCoord(currentKey);
 
         DIRECTIONS.forEach(dir => {
-            // Custom rule: jumps where the number of holes between start/jumped and jumped/landing are equal
-            for (let M = 1; M <= 4; M++) { // Max M=4 to limit jump distance
-                const jumpedKey = coordKey(currentCoord.q + dir.q * M, currentCoord.r + dir.r * M);
-                const landingKey = coordKey(currentCoord.q + dir.q * 2 * M, currentCoord.r + dir.r * 2 * M);
+            const jumpedKey = coordKey(currentCoord.q + dir.q, currentCoord.r + dir.r);
+            const landingKey = coordKey(currentCoord.q + dir.q * 2, currentCoord.r + dir.r * 2);
 
-                if (boardState[jumpedKey] && // Jump over piece
-                    isValidPeg(landingKey) && // Landing spot is valid
-                    !boardState[landingKey] && // Landing spot is empty
-                    !visitedHopDestinations.has(landingKey)) // Not already visited
-                {
-                    // Check all positions between current and jumped are empty
-                    let allEmpty = true;
-                    for (let k = 1; k < M; k++) {
-                        const betweenKey = coordKey(currentCoord.q + dir.q * k, currentCoord.r + dir.r * k);
-                        if (boardState[betweenKey] || !isValidPeg(betweenKey)) {
-                            allEmpty = false;
-                            break;
-                        }
-                    }
-                    // Check positions between jumped and landing are empty
-                    for (let k = M + 1; k < 2 * M; k++) {
-                        const betweenKey = coordKey(currentCoord.q + dir.q * k, currentCoord.r + dir.r * k);
-                        if (boardState[betweenKey] || !isValidPeg(betweenKey)) {
-                            allEmpty = false;
-                            break;
-                        }
-                    }
-                    if (allEmpty) {
-                        validDestinations.add(landingKey);
-                        visitedHopDestinations.add(landingKey);
-                        hopQueue.push(landingKey);
-                    }
-                }
+            if (boardState[jumpedKey] && // Jump over adjacent piece
+                isValidPeg(landingKey) && // Landing spot is valid
+                !boardState[landingKey] && // Landing spot is empty
+                !visitedHopDestinations.has(landingKey)) // Not already visited
+            {
+                validDestinations.add(landingKey);
+                visitedHopDestinations.add(landingKey);
+                hopQueue.push(landingKey);
             }
         });
     }
@@ -705,6 +717,8 @@ document.getElementById('fullscreen-board-btn').addEventListener('click', () => 
 
 // --- FULLSCREEN BOARD FUNCTIONALITY ---
 
+let fullscreenContainer = null;
+
 function toggleBoardFullscreen() {
     const boardElement = document.getElementById('chinese-checkers-board');
     const button = document.getElementById('fullscreen-board-btn');
@@ -730,8 +744,44 @@ function toggleBoardFullscreen() {
         button.textContent = '⛶'; // Fullscreen icon
         button.title = 'Toggle Fullscreen Board';
     } else {
-        // Enter fullscreen
-        enterFullscreen(boardElement);
+        // Create a container for fullscreen that includes the board and modal
+        fullscreenContainer = document.createElement('div');
+        fullscreenContainer.id = 'fullscreen-container';
+        fullscreenContainer.style.cssText = `
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background: var(--bg-primary);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        `;
+
+        // Move the board into the container and make it fill fullscreen
+        const boardContainer = document.getElementById('game-board-container');
+        boardContainer.parentNode.insertBefore(fullscreenContainer, boardContainer);
+        fullscreenContainer.appendChild(boardElement);
+
+        // Scale the board to fill the entire screen without stretching
+        boardElement.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+        boardElement.style.position = 'absolute';
+        boardElement.style.top = '0';
+        boardElement.style.left = '0';
+        boardElement.style.width = `${window.innerWidth}px`;
+        boardElement.style.height = `${window.innerHeight}px`;
+        boardElement.style.padding = '30px 0 0 0';
+        boardElement.style.border = 'none';
+        boardElement.style.transform = 'none';
+        boardElement.style.marginTop = '0';
+        boardElement.style.maxWidth = 'none';
+        // Also include the win modal and turn overlay in fullscreen
+        const winModal = document.getElementById('win-modal');
+        const turnOverlay = document.getElementById('fullscreen-turn-overlay');
+        fullscreenContainer.appendChild(winModal);
+        fullscreenContainer.appendChild(turnOverlay);
+
+        // Enter fullscreen with the container
+        enterFullscreen(fullscreenContainer);
         button.textContent = '⛶'; // Exit fullscreen icon (same symbol, different context)
         button.title = 'Exit Fullscreen Board';
     }
@@ -782,6 +832,49 @@ function updateFullscreenButton() {
     } else {
         button.textContent = '⛶'; // Fullscreen icon
         button.title = 'Toggle Fullscreen Board';
+
+        // Restore elements when exiting fullscreen
+        if (fullscreenContainer) {
+            const boardElement = document.getElementById('chinese-checkers-board');
+            const winModal = document.getElementById('win-modal');
+            const boardContainer = document.getElementById('game-board-container');
+
+            if (boardElement && boardContainer) {
+                // Move board back to its original container
+                boardContainer.appendChild(boardElement);
+                // Reset board styling
+                boardElement.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+                boardElement.style.position = '';
+                boardElement.style.top = '';
+                boardElement.style.left = '';
+                boardElement.style.transform = '';
+                boardElement.style.marginTop = '';
+                boardElement.style.width = '';
+                boardElement.style.height = '';
+                boardElement.style.maxWidth = '';
+                boardElement.style.maxHeight = '';
+                boardElement.style.padding = '';
+                boardElement.style.border = '';
+            }
+
+            if (winModal) {
+                // Move modal back to body
+                document.body.appendChild(winModal);
+            }
+
+            const turnOverlay = document.getElementById('fullscreen-turn-overlay');
+            if (turnOverlay) {
+                // Move turn overlay back to body
+                document.body.appendChild(turnOverlay);
+            }
+
+            // Remove the fullscreen container
+            if (fullscreenContainer.parentNode) {
+                fullscreenContainer.parentNode.removeChild(fullscreenContainer);
+            }
+
+            fullscreenContainer = null;
+        }
     }
 }
 
@@ -851,6 +944,12 @@ let isResizing = false;
 function handleWindowResize() {
     if (isResizing) return; // Prevent overlapping resize operations
     isResizing = true;
+
+    // Skip resizing if in fullscreen mode
+    if (document.fullscreenElement) {
+        isResizing = false;
+        return;
+    }
 
     const viewportHeight = window.innerHeight;
     const viewportWidth = window.innerWidth;
@@ -930,6 +1029,22 @@ window.addEventListener('resize', () => {
 // Initial setup
 document.addEventListener('DOMContentLoaded', () => {
     handleWindowResize();
+});
+
+function showWinModal(winnerColor) {
+    const modal = document.getElementById('win-modal');
+    const title = document.getElementById('win-title');
+    const message = document.getElementById('win-message');
+
+    title.textContent = `🎉 VICTORY! 🎉`;
+    message.textContent = `Congratulations! ${winnerColor.charAt(0).toUpperCase() + winnerColor.slice(1)} has won the game!`;
+
+    modal.style.display = 'flex';
+}
+
+document.getElementById('close-win-modal').addEventListener('click', () => {
+    const modal = document.getElementById('win-modal');
+    modal.style.display = 'none';
 });
 
 // --- START THE APP ---

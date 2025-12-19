@@ -47,9 +47,35 @@
                 <button id="leave-game-btn">Leave Game</button>
             </div>
 
+
+
             <svg id="chinese-checkers-board" viewBox="0 0 1000 870"></svg>
         </section>
     </main>
+
+    <!-- Full Screen Turn Indicator -->
+    <div id="fullscreen-turn-overlay" style="display: none;">
+        <div id="fullscreen-turn-content">
+            <h1 id="fullscreen-turn-text">Waiting for players...</h1>
+        </div>
+    </div>
+
+    <!-- Win Modal -->
+    <div id="win-modal" style="display: none;">
+        <div id="win-modal-content">
+            <h1 id="win-title">🎉 VICTORY! 🎉</h1>
+            <p id="win-message">Congratulations! You have won the game!</p>
+            <div id="win-animations">
+                <div class="confetti-piece"></div>
+                <div class="confetti-piece"></div>
+                <div class="confetti-piece"></div>
+                <div class="confetti-piece"></div>
+                <div class="confetti-piece"></div>
+                <div class="trophy-icon">🏆</div>
+            </div>
+            <button id="close-win-modal">Continue</button>
+        </div>
+    </div>
 
     <script type="module" src="script.js"></script>
 </body>

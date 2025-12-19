@@ -351,6 +351,8 @@ input[type="text"]::placeholder {
     backdrop-filter: blur(10px);
 }
 
+
+
 #current-turn-display {
     font-size: 1.4rem;
     font-weight: 600;
@@ -383,10 +385,6 @@ input[type="text"]::placeholder {
     object-fit: contain; /* Scale SVG to fit while maintaining aspect ratio */
 }
 
-#chinese-checkers-board:hover {
-    border-color: rgba(247, 209, 77, 0.3);
-    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.15);
-}
 
 /* Base Peg Style (The holes) */
 .peg {
@@ -424,17 +422,27 @@ input[type="text"]::placeholder {
 
 /* Interaction Styles */
 .piece-selected {
-    stroke: var(--highlight-color);
-    stroke-width: 4;
+    stroke: var(--accent-secondary);
+    stroke-width: 6;
+    filter: drop-shadow(0 0 8px var(--accent-secondary));
 }
 
 .move-highlight {
-    fill: none;
-    stroke: var(--highlight-color);
-    stroke-width: 5;
-    opacity: 0.8;
+    fill: var(--accent-tertiary);
+    fill-opacity: 0.4;
+    stroke: var(--accent-tertiary);
+    stroke-width: 3;
     cursor: pointer;
-    animation: pulse 1s infinite alternate;
+    filter: drop-shadow(0 0 8px var(--accent-tertiary));
+    transition: all 0.2s ease;
+}
+
+.move-highlight:hover {
+    fill: var(--accent-tertiary);
+    fill-opacity: 0.6;
+    stroke: var(--accent-primary);
+    stroke-width: 4;
+    filter: drop-shadow(0 0 12px var(--accent-primary));
 }
 
 @keyframes pulse {
@@ -489,6 +497,21 @@ p {
 @keyframes pulse-fast {
     from { opacity: 0.7; }
     to { opacity: 1; }
+}
+
+@keyframes movePulse {
+    0% {
+        fill-opacity: 0.2;
+        transform: scale(0.9);
+    }
+    50% {
+        fill-opacity: 0.4;
+        transform: scale(1.1);
+    }
+    100% {
+        fill-opacity: 0.2;
+        transform: scale(0.9);
+    }
 }
 
 /* Loading and Transition Effects */
@@ -645,6 +668,204 @@ p {
         font-size: 1.4rem;
         margin-bottom: 15px;
     }
+}
+
+/* Full Screen Turn Indicator */
+#fullscreen-turn-overlay {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 1000; /* High z-index within the fullscreen container */
+    animation: notificationSlideIn 0.5s ease-out;
+    pointer-events: none;
+}
+
+#fullscreen-turn-content {
+    text-align: center;
+    padding: 12px 24px;
+    border-radius: var(--radius-md);
+    background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+    border: 2px solid var(--border-primary);
+    box-shadow: 0 5px 15px var(--shadow-primary);
+    max-width: 200px;
+}
+
+#fullscreen-turn-text {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0;
+    color: var(--text-primary);
+    letter-spacing: 0.02em;
+    line-height: 1.2;
+}
+
+@keyframes notificationSlideIn {
+    from {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.15); }
+}
+
+/* Win Modal Styles */
+#win-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(10px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    animation: modalFadeIn 0.5s ease-out;
+}
+
+#win-modal-content {
+    background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+    padding: 40px;
+    border-radius: var(--radius-xl);
+    border: 2px solid var(--border-primary);
+    box-shadow: 0 20px 60px var(--shadow-primary);
+    text-align: center;
+    max-width: 500px;
+    width: 90%;
+    animation: modalSlideUp 0.6s ease-out;
+}
+
+#win-title {
+    font-size: 3rem;
+    font-weight: 800;
+    margin: 0 0 20px 0;
+    background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 50%, var(--accent-tertiary) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: titleGlow 1s ease-in-out infinite alternate;
+}
+
+#win-message {
+    font-size: 1.2rem;
+    color: var(--text-primary);
+    margin: 0 0 30px 0;
+}
+
+#win-animations {
+    position: relative;
+    height: 100px;
+    margin: 20px 0;
+    overflow: hidden;
+}
+
+.confetti-piece {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: var(--accent-primary);
+    animation: confettiFall 3s linear infinite;
+}
+
+.confetti-piece:nth-child(1) {
+    left: 10%;
+    animation-delay: 0s;
+    background: var(--accent-primary);
+}
+
+.confetti-piece:nth-child(2) {
+    left: 30%;
+    animation-delay: 0.5s;
+    background: var(--accent-secondary);
+}
+
+.confetti-piece:nth-child(3) {
+    left: 50%;
+    animation-delay: 1s;
+    background: var(--accent-tertiary);
+}
+
+.confetti-piece:nth-child(4) {
+    left: 70%;
+    animation-delay: 1.5s;
+    background: var(--success);
+}
+
+.confetti-piece:nth-child(5) {
+    left: 90%;
+    animation-delay: 2s;
+    background: var(--warning);
+}
+
+.trophy-icon {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 3rem;
+    animation: trophyBounce 1s ease-in-out infinite;
+}
+
+#close-win-modal {
+    background: linear-gradient(135deg, var(--success) 0%, #059669 100%);
+    color: white;
+    margin-top: 20px;
+    animation: buttonPulse 2s ease-in-out infinite;
+}
+
+@keyframes modalFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes modalSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(50px) scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes titleGlow {
+    from { filter: drop-shadow(0 0 10px var(--accent-primary)); }
+    to { filter: drop-shadow(0 0 20px var(--accent-secondary)); }
+}
+
+@keyframes confettiFall {
+    0% {
+        top: -10px;
+        transform: rotate(0deg);
+    }
+    100% {
+        top: 100px;
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes trophyBounce {
+    0%, 100% { transform: translateX(-50%) scale(1); }
+    50% { transform: translateX(-50%) scale(1.2); }
+}
+
+@keyframes buttonPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
 }
 
 /* Ensure game board is always visible */
