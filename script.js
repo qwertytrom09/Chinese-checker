@@ -744,45 +744,27 @@ function toggleBoardFullscreen() {
         button.textContent = '⛶'; // Fullscreen icon
         button.title = 'Toggle Fullscreen Board';
     } else {
-        // Create a container for fullscreen that includes the board and modal
-        fullscreenContainer = document.createElement('div');
-        fullscreenContainer.id = 'fullscreen-container';
-        fullscreenContainer.style.cssText = `
-            position: relative;
-            width: 100vw;
-            height: 100vh;
-            background: var(--bg-primary);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        `;
+        // Add fullscreen class to board and position it over everything
+        boardElement.classList.add('fullscreen-board');
 
-        // Move the board into the container and make it fill fullscreen
-        const boardContainer = document.getElementById('game-board-container');
-        boardContainer.parentNode.insertBefore(fullscreenContainer, boardContainer);
-        fullscreenContainer.appendChild(boardElement);
-
-        // Scale the board to fill the entire screen without stretching
-        boardElement.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-        boardElement.style.position = 'absolute';
-        boardElement.style.top = '0';
-        boardElement.style.left = '0';
-        boardElement.style.width = '100%';
-        boardElement.style.height = '100%';
-        boardElement.style.padding = '20px 0 0 0';
-        boardElement.style.border = 'none';
-        boardElement.style.transform = 'none';
-        boardElement.style.marginTop = '0';
-        boardElement.style.maxWidth = 'none';
-        boardElement.style.maxHeight = 'none'; // Override mobile max-height constraints
-        // Also include the win modal and turn overlay in fullscreen
+        // Also include the win modal and turn overlay in fullscreen by positioning them fixed
         const winModal = document.getElementById('win-modal');
         const turnOverlay = document.getElementById('fullscreen-turn-overlay');
-        fullscreenContainer.appendChild(winModal);
-        fullscreenContainer.appendChild(turnOverlay);
 
-        // Enter fullscreen with the container
-        enterFullscreen(fullscreenContainer);
+        if (winModal) {
+            winModal.style.position = 'fixed';
+            winModal.style.zIndex = '10000';
+        }
+
+        if (turnOverlay) {
+            turnOverlay.style.position = 'fixed';
+            turnOverlay.style.zIndex = '10001';
+            turnOverlay.style.top = '20px';
+            turnOverlay.style.right = '20px';
+        }
+
+        // Enter fullscreen with the document body
+        enterFullscreen(document.body);
         button.textContent = '⛶'; // Exit fullscreen icon (same symbol, different context)
         button.title = 'Exit Fullscreen Board';
     }
@@ -835,47 +817,33 @@ function updateFullscreenButton() {
         button.title = 'Toggle Fullscreen Board';
 
         // Restore elements when exiting fullscreen
-        if (fullscreenContainer) {
-            const boardElement = document.getElementById('chinese-checkers-board');
-            const winModal = document.getElementById('win-modal');
-            const boardContainer = document.getElementById('game-board-container');
+        const boardElement = document.getElementById('chinese-checkers-board');
+        const winModal = document.getElementById('win-modal');
+        const turnOverlay = document.getElementById('fullscreen-turn-overlay');
 
-            if (boardElement && boardContainer) {
-                // Move board back to its original container
-                boardContainer.appendChild(boardElement);
-                // Reset board styling
-                boardElement.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-                boardElement.style.position = '';
-                boardElement.style.top = '';
-                boardElement.style.left = '';
-                boardElement.style.transform = '';
-                boardElement.style.marginTop = '';
-                boardElement.style.width = '';
-                boardElement.style.height = '';
-                boardElement.style.maxWidth = '';
-                boardElement.style.maxHeight = '';
-                boardElement.style.padding = '';
-                boardElement.style.border = '';
-            }
-
-            if (winModal) {
-                // Move modal back to body
-                document.body.appendChild(winModal);
-            }
-
-            const turnOverlay = document.getElementById('fullscreen-turn-overlay');
-            if (turnOverlay) {
-                // Move turn overlay back to body
-                document.body.appendChild(turnOverlay);
-            }
-
-            // Remove the fullscreen container
-            if (fullscreenContainer.parentNode) {
-                fullscreenContainer.parentNode.removeChild(fullscreenContainer);
-            }
-
-            fullscreenContainer = null;
+        // Remove fullscreen class and reset styles
+        if (boardElement) {
+            boardElement.classList.remove('fullscreen-board');
+            boardElement.setAttribute('preserveAspectRatio', 'xMidYMid meet');
         }
+
+        // Reset modal and overlay positioning
+        if (winModal) {
+            winModal.style.position = '';
+            winModal.style.zIndex = '';
+        }
+
+        if (turnOverlay) {
+            turnOverlay.style.position = '';
+            turnOverlay.style.zIndex = '';
+            turnOverlay.style.top = '';
+            turnOverlay.style.right = '';
+        }
+
+        // Trigger a resize to restore normal layout
+        setTimeout(() => {
+            window.dispatchEvent(new Event('resize'));
+        }, 100);
     }
 }
 
