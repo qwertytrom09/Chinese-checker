@@ -502,6 +502,62 @@ function drawBoard(boardState, selectedPieceCoords) {
 
     svg.appendChild(defs);
 
+    // 0. Draw home area triangles
+    const homeTriangles = {
+        // Red: Bottom triangle
+        red: [
+            { x: 750, y: 150 - 4*40*0.866 }, // Center bottom
+            { x: 700 - 4*40, y: 0 + 4*40*0.866 }, // Left point
+            { x: 600 + 4*40, y: 100 + 4*40*0.866 }  // Right point
+        ],
+        // Green: Top triangle
+        green: [
+            { x: 250, y: 780 - 4*40*0.866 }, // Center top
+            { x: 420 - 4*40, y: 700 + 4*40*0.866 }, // Left point
+            { x: 300 + 4*40, y: 600 + 4*40*0.866 }  // Right point
+        ],
+        // Yellow: NE triangle
+        yellow: [
+            { x: 750, y: 780 - 4*40*0.866 }, // Center bottom
+            { x: 700 - 4*40, y: 600 + 4*40*0.866 }, // Left point
+            { x: 570 + 4*40, y: 700 + 4*40*0.866 }  // Right point  // Bottom point
+        ],
+        // Blue: SW triangle
+        blue: [
+            { x: 250, y: 150 - 4*40*0.866 }, // Center top
+            { x: 420 - 4*40, y: 100 + 4*40*0.866 }, // Left point
+            { x: 300 + 4*40, y: 0 + 4*40*0.866 }  // Right point
+        ],
+        // Black: NW triangle
+        black: [
+            { x: 500 - 4*40*0.866, y: 435 - 4*40*0.866 }, // NW point
+            { x: 500 + 4*40*0.866, y: 435 }, // Right point
+            { x: 500, y: 435 + 4*40*0.866 }  // Bottom point
+        ],
+        // White: SE triangle
+        white: [
+            { x: 500 + 4*40*0.866, y: 435 + 4*40*0.866 }, // SE point
+            { x: 500 - 4*40*0.866, y: 435 }, // Left point
+            { x: 500, y: 435 - 4*40*0.866 }  // Top point
+        ]
+    };
+
+    const activeColors = getActiveColors(currentGameState ? currentGameState.maxPlayers : 6);
+    activeColors.forEach(color => {
+        const triangle = homeTriangles[color];
+        if (triangle) {
+            const triangleElement = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+            const points = triangle.map(p => `${p.x},${p.y}`).join(' ');
+            triangleElement.setAttribute("points", points);
+            triangleElement.setAttribute("fill", color);
+            triangleElement.setAttribute("fill-opacity", "0.3");
+            triangleElement.setAttribute("stroke", color);
+            triangleElement.setAttribute("stroke-width", "2");
+            triangleElement.setAttribute("stroke-opacity", "0.5");
+            svg.appendChild(triangleElement);
+        }
+    });
+
     // 1. Draw all 121 Pegs
     for (const key of PEG_MAP.keys()) {
         const { q, r } = keyToCoord(key);
