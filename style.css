@@ -15,12 +15,12 @@
     --border-secondary: rgba(255, 255, 255, 0.05);
     --shadow-primary: rgba(0, 0, 0, 0.3);
     --shadow-glow: rgba(99, 102, 241, 0.2);
-    --highlight-color: #f59e0b; /* Amber */
-    --board-color: #1a1a24;
     --radius-sm: 8px;
     --radius-md: 12px;
     --radius-lg: 16px;
     --radius-xl: 24px;
+    --highlight-color: #f59e0b; /* Amber for move highlights */
+    --board-color: #1a1a24;
 }
 
 body {
@@ -178,15 +178,6 @@ main {
     background: linear-gradient(90deg, var(--accent-tertiary), var(--accent-secondary), var(--accent-primary));
     border-radius: var(--radius-xl) var(--radius-xl) 0 0;
     opacity: 0.8;
-}
-
-#game-settings {
-    margin-top: 15px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 14px;
-    color: var(--text-secondary);
 }
 
 #game-controls div {
@@ -362,11 +353,6 @@ input[type="text"]::placeholder {
     backdrop-filter: blur(10px);
 }
 
-#game-info #game-settings {
-    margin-top: 10px;
-    margin-bottom: 10px;
-}
-
 #current-turn-display {
     font-size: 1.4rem;
     font-weight: 600;
@@ -409,13 +395,6 @@ input[type="text"]::placeholder {
     fill: #1e1e1e;
     stroke: #555;
     stroke-width: 1;
-}
-
-.peg.valid-move-hole {
-    fill: var(--highlight-color);
-    stroke: var(--highlight-color);
-    stroke-width: 3;
-    animation: pulse 1s infinite alternate;
 }
 
 /* Piece Styles (The marbles) */

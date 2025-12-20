@@ -33,7 +33,6 @@ let currentUser = null;
 let currentGameId = null;
 let unsubscribeGameListener = null;
 let currentGameState = null;
-let highlightHoles = true;
 
 const PLAYER_COLORS = ['red', 'green', 'yellow', 'blue', 'black', 'white']; // Order matching initialization peaks
 
@@ -158,8 +157,7 @@ async function createNewGame(maxPlayers = 6) {
             boardState: initializeBoard(maxPlayers),
             selectedPiece: null,
             moveHistory: [],
-            winner: null,
-            highlightHoles: true
+            winner: null
         };
 
         console.log('Creating game with state:', initialGameState);
@@ -245,9 +243,6 @@ function handleGameUpdate(gameState) {
     }
 
     document.getElementById('current-turn-display').textContent = displayText;
-
-    // Sync highlight toggle with game state
-    document.getElementById('highlight-toggle').checked = gameState.highlightHoles;
 
     drawBoard(gameState.boardState, gameState.selectedPiece);
 }
@@ -500,14 +495,6 @@ function drawBoard(boardState, selectedPieceCoords) {
 
     svg.appendChild(defs);
 
-    // Calculate valid moves for highlighting
-    const currentPlayerColor = currentGameState.players.find(p => p.userId === currentUser.uid)?.color;
-    const isSinglePlayerGame = currentGameState.players.length === 1;
-    let moves = [];
-    if (selectedPieceCoords && (currentGameState.turn === currentPlayerColor || isSinglePlayerGame)) {
-        moves = calculateValidMoves(selectedPieceCoords, boardState);
-    }
-
     // 1. Draw all 121 Pegs
     for (const key of PEG_MAP.keys()) {
         const { q, r } = keyToCoord(key);
@@ -518,9 +505,6 @@ function drawBoard(boardState, selectedPieceCoords) {
         peg.setAttribute("cy", y);
         peg.setAttribute("r", PEG_RADIUS);
         peg.classList.add("peg");
-        if (moves.includes(key) && currentGameState.highlightHoles) {
-            peg.classList.add("valid-move-hole");
-        }
         peg.dataset.coords = key;
         svg.appendChild(peg);
 
@@ -540,6 +524,25 @@ function drawBoard(boardState, selectedPieceCoords) {
                 piece.classList.add('piece-selected');
             }
         }
+    }
+
+    // 3. Highlight Valid Moves
+    const currentPlayerColor = currentGameState.players.find(p => p.userId === currentUser.uid)?.color;
+    const isSinglePlayerGame = currentGameState.players.length === 1;
+    if (selectedPieceCoords && (currentGameState.turn === currentPlayerColor || isSinglePlayerGame)) {
+        const moves = calculateValidMoves(selectedPieceCoords, boardState);
+        moves.forEach(key => {
+            const { q, r } = keyToCoord(key);
+            const { x, y } = axialToPixel(q, r);
+            let highlight = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            highlight.setAttribute("cx", x);
+            highlight.setAttribute("cy", y);
+            highlight.setAttribute("r", PIECE_RADIUS * 0.9);
+            highlight.setAttribute("fill", "transparent");
+            highlight.classList.add("move-highlight");
+            highlight.dataset.coords = key;
+            svg.appendChild(highlight);
+        });
     }
 }
 
@@ -585,6 +588,7 @@ function calculateValidMoves(startKey, boardState) {
                 const landingKey = coordKey(currentCoord.q + dir.q * 2 * M, currentCoord.r + dir.r * 2 * M);
 
                 if (boardState[jumpedKey] && // Jump over piece
+                    jumpedKey !== startKey && // Chosen peg cannot jump over itself (its starting position)
                     isValidPeg(landingKey) && // Landing spot is valid
                     !boardState[landingKey] && // Landing spot is empty
                     !visitedHopDestinations.has(landingKey)) // Not already visited
@@ -626,146 +630,10 @@ function checkWinCondition(boardState, color) {
     return WIN_POSITIONS[color].every(key => boardState[key] === color);
 }
 
-/**
- * Calculates the path a piece takes to move from start to end.
- */
-function getMovePath(startKey, endKey, boardState) {
-    if (startKey === endKey) return [startKey];
-
-    const visited = new Set();
-    const queue = [startKey];
-    const parent = new Map();
-    visited.add(startKey);
-    parent.set(startKey, null);
-
-    let found = false;
-
-    while (queue.length > 0 && !found) {
-        const currentKey = queue.shift();
-        const currentCoord = keyToCoord(currentKey);
-
-        DIRECTIONS.forEach(dir => {
-            // Single steps
-            const neighborKey = coordKey(currentCoord.q + dir.q, currentCoord.r + dir.r);
-            if (isValidPeg(neighborKey) && !boardState[neighborKey] && !visited.has(neighborKey)) {
-                visited.add(neighborKey);
-                queue.push(neighborKey);
-                parent.set(neighborKey, currentKey);
-                if (neighborKey === endKey) found = true;
-            }
-
-            // Jumps
-            for (let M = 1; M <= 4; M++) {
-                const jumpedKey = coordKey(currentCoord.q + dir.q * M, currentCoord.r + dir.r * M);
-                const landingKey = coordKey(currentCoord.q + dir.q * 2 * M, currentCoord.r + dir.r * 2 * M);
-
-                if (boardState[jumpedKey] && isValidPeg(landingKey) && !boardState[landingKey] && !visited.has(landingKey)) {
-                    // Check empty between
-                    let allEmpty = true;
-                    for (let k = 1; k < M; k++) {
-                        const betweenKey = coordKey(currentCoord.q + dir.q * k, currentCoord.r + dir.r * k);
-                        if (boardState[betweenKey] || !isValidPeg(betweenKey)) {
-allEmpty = false;
-                            break;
-                        }
-                    }
-                    for (let k = M + 1; k < 2 * M; k++) {
-                        const betweenKey = coordKey(currentCoord.q + dir.q * k, currentCoord.r + dir.r * k);
-                        if (boardState[betweenKey] || !isValidPeg(betweenKey)) {
-                            allEmpty = false;
-                            break;
-                        }
-                    }
-                    if (allEmpty) {
-                        visited.add(landingKey);
-                        queue.push(landingKey);
-                        parent.set(landingKey, currentKey);
-                        if (landingKey === endKey) found = true;
-                    }
-                }
-            }
-        });
-    }
-
-    if (!found) return null;
-
-    // Reconstruct path
-    const path = [];
-    let current = endKey;
-    while (current !== null) {
-        path.unshift(current);
-        current = parent.get(current);
-    }
-    return path;
-}
-
-/**
- * Animates a piece moving along a path of positions.
- */
-function animatePieceMove(path) {
-    return new Promise((resolve) => {
-        if (!path || path.length < 2) {
-            resolve();
-            return;
-        }
-
-        const pieceElement = document.getElementById(`piece-${path[0]}`);
-        if (!pieceElement) {
-            resolve();
-            return;
-        }
-
-        let currentIndex = 0;
-
-        function animateSegment() {
-            if (currentIndex >= path.length - 1) {
-                resolve();
-                return;
-            }
-
-            const startKey = path[currentIndex];
-            const endKey = path[currentIndex + 1];
-            const startCoord = keyToCoord(startKey);
-            const endCoord = keyToCoord(endKey);
-            const startPos = axialToPixel(startCoord.q, startCoord.r);
-            const endPos = axialToPixel(endCoord.q, endCoord.r);
-
-            const duration = 1000; // 1 second per segment
-            const startTime = performance.now();
-
-            function animate(currentTime) {
-                const elapsed = currentTime - startTime;
-                const progress = Math.min(elapsed / duration, 1);
-
-                const currentX = startPos.x + (endPos.x - startPos.x) * progress;
-                const currentY = startPos.y + (endPos.y - startPos.y) * progress;
-
-                pieceElement.setAttribute('cx', currentX);
-                pieceElement.setAttribute('cy', currentY);
-
-                if (progress < 1) {
-                    requestAnimationFrame(animate);
-                } else {
-                    currentIndex++;
-                    animateSegment();
-                }
-            }
-
-            requestAnimationFrame(animate);
-        }
-
-        animateSegment();
-    });
-}
-
 
 // --- 6. EVENT HANDLERS (The Functional Interaction) ---
 
 async function executeGameMove(origin, destination) {
-    // Calculate the move path and animate along it
-    const path = getMovePath(origin, destination, currentGameState.boardState);
-    await animatePieceMove(path);
-
     // 1. Update the board state
     const newBoardState = { ...currentGameState.boardState };
     const pieceColor = newBoardState[origin];
@@ -1064,65 +932,6 @@ window.addEventListener('resize', () => {
 document.addEventListener('DOMContentLoaded', () => {
     handleWindowResize();
 });
-
-// --- SETTINGS MANAGEMENT ---
-
-// Load settings from localStorage (fallback)
-highlightHoles = localStorage.getItem('highlightHoles') !== 'false'; // default true
-document.getElementById('highlight-toggle').checked = highlightHoles;
-
-// Event listener for highlight toggle
-document.getElementById('highlight-toggle').addEventListener('change', (e) => {
-    if (currentGameId) {
-        // Update game-wide setting
-        update(ref(db, "games/" + currentGameId), { highlightHoles: e.target.checked });
-    } else {
-        // Update global setting for when not in a game
-        highlightHoles = e.target.checked;
-        localStorage.setItem('highlightHoles', highlightHoles.toString());
-    }
-});
-
-// Load user preferences from database when authenticated
-function loadUserPreferences() {
-    if (currentUser) {
-        const userRef = ref(db, "users/" + currentUser.uid);
-        get(userRef).then((snapshot) => {
-            if (snapshot.exists()) {
-                const prefs = snapshot.val();
-                if (prefs.highlightHoles !== undefined) {
-                    highlightHoles = prefs.highlightHoles;
-                    document.getElementById('highlight-toggle').checked = highlightHoles;
-                    localStorage.setItem('highlightHoles', highlightHoles.toString());
-                }
-            }
-        });
-    }
-}
-
-// Call when auth state changes
-function onAuthStateChangedEnhanced(user) {
-    const userInfo = document.getElementById('user-info');
-    const userUidSpan = document.getElementById('user-uid');
-    const logoutBtn = document.getElementById('logout-button');
-
-    if (user) {
-        currentUser = user;
-        userInfo.textContent = `Signed in (Anonymous)`;
-        userUidSpan.textContent = user.uid.substring(0, 8) + '...';
-        logoutBtn.style.display = 'block';
-        enableGameControls(true);
-        loadUserPreferences(); // Load user preferences
-    } else {
-        currentUser = null;
-        userInfo.textContent = `Signing in...`;
-        logoutBtn.style.display = 'none';
-        enableGameControls(false);
-    }
-}
-
-// Replace the original onAuthStateChanged call
-onAuthStateChanged(auth, onAuthStateChangedEnhanced);
 
 // --- START THE APP ---
 setupAuthListener();
