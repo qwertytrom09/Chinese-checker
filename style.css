@@ -353,6 +353,13 @@ input[type="text"]::placeholder {
     backdrop-filter: blur(10px);
 }
 
+/* Hide Moves Toggle Styling */
+#hide-moves-toggle {
+    margin-right: 8px;
+    accent-color: var(--accent-primary);
+    transform: scale(1.1);
+}
+
 #current-turn-display {
     font-size: 1.4rem;
     font-weight: 600;

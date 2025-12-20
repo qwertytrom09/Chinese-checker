@@ -157,7 +157,8 @@ async function createNewGame(maxPlayers = 6) {
             boardState: initializeBoard(maxPlayers),
             selectedPiece: null,
             moveHistory: [],
-            winner: null
+            winner: null,
+            hideMoves: false
         };
 
         console.log('Creating game with state:', initialGameState);
@@ -243,6 +244,12 @@ function handleGameUpdate(gameState) {
     }
 
     document.getElementById('current-turn-display').textContent = displayText;
+
+    // Update hide moves checkbox
+    const hideMovesCheckbox = document.getElementById('hide-moves-toggle');
+    if (hideMovesCheckbox) {
+        hideMovesCheckbox.checked = gameState.hideMoves || false;
+    }
 
     drawBoard(gameState.boardState, gameState.selectedPiece);
 }
@@ -529,7 +536,7 @@ function drawBoard(boardState, selectedPieceCoords) {
     // 3. Highlight Valid Moves
     const currentPlayerColor = currentGameState.players.find(p => p.userId === currentUser.uid)?.color;
     const isSinglePlayerGame = currentGameState.players.length === 1;
-    if (selectedPieceCoords && (currentGameState.turn === currentPlayerColor || isSinglePlayerGame)) {
+    if (selectedPieceCoords && (currentGameState.turn === currentPlayerColor || isSinglePlayerGame) && !currentGameState.hideMoves) {
         const moves = calculateValidMoves(selectedPieceCoords, boardState);
         moves.forEach(key => {
             const { q, r } = keyToCoord(key);
@@ -702,6 +709,12 @@ document.getElementById('copy-link-btn').addEventListener('click', () => {
 
 document.getElementById('fullscreen-board-btn').addEventListener('click', () => {
     toggleBoardFullscreen();
+});
+
+document.getElementById('hide-moves-toggle').addEventListener('change', (e) => {
+    if (currentGameId) {
+        update(ref(db, "games/" + currentGameId), { hideMoves: e.target.checked });
+    }
 });
 
 // --- FULLSCREEN BOARD FUNCTIONALITY ---
