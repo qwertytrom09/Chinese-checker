@@ -39,10 +39,12 @@
 
         <section id="game-board-container" style="display:none;">
             <div id="game-info">
-                <h3 id="current-turn-display">Waiting for players...</h3>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h3 id="current-turn-display">Waiting for players...</h3>
+                    <button id="fullscreen-board-btn" title="Toggle Fake Fullscreen Board" style="font-size: 18px; padding: 8px 12px;">⛶</button>
+                </div>
                 <p id="game-id-display" style="display:none;">Game ID: <span id="current-game-id"></span>
                     <button id="copy-link-btn">Copy Link</button>
-                    <button id="fullscreen-board-btn" title="Toggle Fullscreen Board">⛶</button>
                 </p>
                 <label style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
                     <input type="checkbox" id="hide-moves-toggle">
@@ -53,8 +55,29 @@
 
             <svg id="chinese-checkers-board" viewBox="0 0 1000 870"></svg>
         </section>
+
+        <!-- Win Screen Overlay -->
+        <div id="win-screen-overlay" style="display: none;">
+            <div id="win-screen">
+                <div id="win-content">
+                    <h1 id="win-title">🎉 Victory! 🎉</h1>
+                    <div id="winner-announcement">
+                        <span id="winner-color">Red</span> Player Wins!
+                    </div>
+                    <div id="win-stats">
+                        <p id="game-duration">Game Duration: <span id="duration-text">Unknown</span></p>
+                        <p id="total-moves">Total Moves: <span id="moves-count">0</span></p>
+                    </div>
+                    <div id="win-actions">
+                        <button id="play-again-btn">Play Again</button>
+                        <button id="leave-game-win-btn">Leave Game</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <script type="module" src="script.js"></script>
 </body>
 </html>

@@ -33,6 +33,7 @@ let currentUser = null;
 let currentGameId = null;
 let unsubscribeGameListener = null;
 let currentGameState = null;
+let gameStartTime = null;
 
 const PLAYER_COLORS = ['red', 'green', 'yellow', 'blue', 'black', 'white']; // Order matching initialization peaks
 
@@ -148,6 +149,9 @@ async function createNewGame(maxPlayers = 6) {
     }
 
     try {
+        // Set game start time
+        gameStartTime = new Date();
+
         const activeColors = getActiveColors(maxPlayers);
         const initialGameState = {
             status: maxPlayers === 1 ? 'in-progress' : 'waiting', // Start immediately for single player testing
@@ -245,6 +249,13 @@ function handleGameUpdate(gameState) {
 
     document.getElementById('current-turn-display').textContent = displayText;
 
+    // Update fullscreen turn indicator if present
+    const turnIndicator = document.getElementById('fullscreen-turn-indicator');
+    if (turnIndicator) {
+        turnIndicator.textContent = `Turn: ${gameState.turn}`;
+        turnIndicator.style.color = gameState.turn;
+    }
+
     // Update hide moves checkbox
     const hideMovesCheckbox = document.getElementById('hide-moves-toggle');
     if (hideMovesCheckbox) {
@@ -252,6 +263,19 @@ function handleGameUpdate(gameState) {
     }
 
     drawBoard(gameState.boardState, gameState.selectedPiece);
+
+    // Handle win screen
+    if (gameState.status === 'finished' && gameState.winner) {
+        document.body.classList.add('game-won');
+        // Exit fake fullscreen when game ends
+        if (isFakeFullscreen) {
+            exitFakeFullscreen(document.getElementById('game-board-container'));
+        }
+        showWinScreen(gameState);
+    } else {
+        document.body.classList.remove('game-won');
+        hideWinScreen();
+    }
 }
 
 // --- 4. BOARD GEOMETRY AND DRAWING (Axial Coordinates) ---
@@ -371,12 +395,7 @@ function initializeBoard(maxPlayers) {
     return boardState;
 }
 
-function drawBoard(boardState, selectedPieceCoords) {
-    const svg = document.getElementById('chinese-checkers-board');
-    if (!svg) return;
-
-    svg.innerHTML = '';
-
+function drawBoardToSvg(svg, boardState, selectedPieceCoords) {
     // Add gradient definitions for marble effects
     const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
 
@@ -609,6 +628,24 @@ function drawBoard(boardState, selectedPieceCoords) {
     }
 }
 
+function drawBoard(boardState, selectedPieceCoords) {
+    const svg = document.getElementById('chinese-checkers-board');
+    if (!svg) return;
+
+    // Clear main board
+    svg.innerHTML = '';
+
+    // Draw to main board
+    drawBoardToSvg(svg, boardState, selectedPieceCoords);
+
+    // Also update fullscreen board if it exists
+    const fullscreenSvg = document.getElementById('fake-fullscreen-board-svg');
+    if (fullscreenSvg) {
+        fullscreenSvg.innerHTML = '';
+        drawBoardToSvg(fullscreenSvg, boardState, selectedPieceCoords);
+    }
+}
+
 
 // --- 5. GAME LOGIC ENGINE (Functional Core) ---
 
@@ -697,6 +734,16 @@ function checkWinCondition(boardState, color) {
 // --- 6. EVENT HANDLERS (The Functional Interaction) ---
 
 async function executeGameMove(origin, destination) {
+    // Add moving animation class to the piece
+    const pieceElement = document.getElementById(`piece-${origin}`);
+    if (pieceElement) {
+        pieceElement.classList.add('moving');
+        // Remove the class after animation
+        setTimeout(() => {
+            pieceElement.classList.remove('moving');
+        }, 800);
+    }
+
     // 1. Update the board state
     const newBoardState = { ...currentGameState.boardState };
     const pieceColor = newBoardState[origin];
@@ -773,85 +820,144 @@ document.getElementById('hide-moves-toggle').addEventListener('change', (e) => {
     }
 });
 
-// --- FULLSCREEN BOARD FUNCTIONALITY ---
+// --- FAKE FULLSCREEN BOARD FUNCTIONALITY ---
+
+let isFakeFullscreen = false;
 
 function toggleBoardFullscreen() {
+    const boardContainer = document.getElementById('game-board-container');
     const boardElement = document.getElementById('chinese-checkers-board');
     const button = document.getElementById('fullscreen-board-btn');
 
-    if (!boardElement) return;
+    if (!boardContainer || !boardElement) return;
 
-    // Check if fullscreen is supported
-    if (!document.fullscreenEnabled && !document.webkitFullscreenEnabled &&
-        !document.mozFullScreenEnabled && !document.msFullscreenEnabled) {
-        alert('Fullscreen is not supported by your browser.');
+    if (isFakeFullscreen) {
+        // Exit fake fullscreen
+        exitFakeFullscreen(boardContainer);
+        button.textContent = '⛶'; // Fullscreen icon
+        button.title = 'Toggle Fake Fullscreen Board';
+        isFakeFullscreen = false;
+    } else {
+        // Enter fake fullscreen
+        enterFakeFullscreen(boardContainer);
+        button.textContent = '⛶'; // Exit fullscreen icon (same symbol, different context)
+        button.title = 'Exit Fake Fullscreen Board';
+        isFakeFullscreen = true;
+    }
+}
+
+function enterFakeFullscreen(container) {
+    // Create overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'fake-fullscreen-overlay';
+    overlay.id = 'fake-fullscreen-overlay';
+
+    // Clone only the SVG board for fullscreen (not the entire container)
+    const boardElement = container.querySelector('#chinese-checkers-board');
+    const fullscreenBoard = boardElement.cloneNode(true);
+    fullscreenBoard.id = 'fake-fullscreen-board-svg';
+    fullscreenBoard.setAttribute('class', 'fake-fullscreen-board-svg');
+
+    // Add click event listener to the fullscreen board for game interactions
+    fullscreenBoard.addEventListener('click', handleFullscreenBoardClick);
+
+    // Add close button to fullscreen
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '✕';
+    closeBtn.style.cssText = `
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        font-size: 20px;
+        cursor: pointer;
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    `;
+    closeBtn.onclick = () => toggleBoardFullscreen();
+
+    // Add turn indicator
+    const turnIndicator = document.createElement('div');
+    turnIndicator.id = 'fullscreen-turn-indicator';
+    turnIndicator.textContent = `Turn: ${currentGameState.turn}`;
+    turnIndicator.style.color = currentGameState.turn;
+
+    overlay.appendChild(fullscreenBoard);
+    overlay.appendChild(closeBtn);
+    overlay.appendChild(turnIndicator);
+    document.body.appendChild(overlay);
+
+    // Prevent body scroll
+    document.body.style.overflow = 'hidden';
+}
+
+function exitFakeFullscreen(container) {
+    const overlay = document.getElementById('fake-fullscreen-overlay');
+    if (overlay) {
+        overlay.remove();
+    }
+    document.body.style.overflow = '';
+}
+
+// Handle escape key to exit fake fullscreen
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && isFakeFullscreen) {
+        toggleBoardFullscreen();
+    }
+});
+
+// Handle click on overlay to exit fake fullscreen
+document.addEventListener('click', (e) => {
+    if (e.target.id === 'fake-fullscreen-overlay' && isFakeFullscreen) {
+        toggleBoardFullscreen();
+    }
+});
+
+// Handle clicks on the fullscreen board
+function handleFullscreenBoardClick(event) {
+    if (!currentGameState || currentGameState.status !== 'in-progress' || !currentUser) return;
+
+    const target = event.target;
+    const currentPlayerColor = currentGameState.players.find(p => p.userId === currentUser.uid)?.color;
+    const isPlayerTurn = currentPlayerColor === currentGameState.turn;
+    const isSinglePlayerGame = currentGameState.players.length === 1; // Allow playing any color in single player
+
+    if (!isPlayerTurn && !isSinglePlayerGame) {
         return;
     }
 
-    // Check if we're currently in fullscreen
-    const isFullscreen = document.fullscreenElement ||
-                        document.webkitFullscreenElement ||
-                        document.mozFullScreenElement ||
-                        document.msFullscreenElement;
+    // 1. Piece Selection
+    if (target.classList.contains('game-piece')) {
+        const pieceColor = target.classList.item(1).replace('piece-', '');
 
-    if (isFullscreen) {
-        // Exit fullscreen
-        exitFullscreen();
-        button.textContent = '⛶'; // Fullscreen icon
-        button.title = 'Toggle Fullscreen Board';
-    } else {
-        // Enter fullscreen
-        enterFullscreen(boardElement);
-        button.textContent = '⛶'; // Exit fullscreen icon (same symbol, different context)
-        button.title = 'Exit Fullscreen Board';
+        // Allow selecting any piece if single player, or only your color pieces
+        if (isSinglePlayerGame || pieceColor === currentPlayerColor) {
+            const coords = target.dataset.coords;
+            const newSelection = currentGameState.selectedPiece === coords ? null : coords;
+
+            update(ref(db, "games/" + currentGameId), { selectedPiece: newSelection });
+        }
     }
-}
 
-function enterFullscreen(element) {
-    if (element.requestFullscreen) {
-        element.requestFullscreen();
-    } else if (element.webkitRequestFullscreen) {
-        element.webkitRequestFullscreen();
-    } else if (element.mozRequestFullScreen) {
-        element.mozRequestFullScreen();
-    } else if (element.msRequestFullscreen) {
-        element.msRequestFullscreen();
-    }
-}
+    // 2. Move Execution
+    else if (target.classList.contains('move-highlight') || target.classList.contains('peg')) {
+        const destCoords = target.dataset.coords;
+        const originCoords = currentGameState.selectedPiece;
 
-function exitFullscreen() {
-    if (document.exitFullscreen) {
-        document.exitFullscreen();
-    } else if (document.webkitExitFullscreen) {
-        document.webkitExitFullscreen();
-    } else if (document.mozCancelFullScreen) {
-        document.mozCancelFullScreen();
-    } else if (document.msExitFullscreen) {
-        document.msExitFullscreen();
-    }
-}
+        if (originCoords) {
+            const validMoves = calculateValidMoves(originCoords, currentGameState.boardState);
 
-// Listen for fullscreen changes to update button state
-document.addEventListener('fullscreenchange', updateFullscreenButton);
-document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
-document.addEventListener('mozfullscreenchange', updateFullscreenButton);
-document.addEventListener('MSFullscreenChange', updateFullscreenButton);
-
-function updateFullscreenButton() {
-    const button = document.getElementById('fullscreen-board-btn');
-    if (!button) return;
-
-    const isFullscreen = document.fullscreenElement ||
-                        document.webkitFullscreenElement ||
-                        document.mozFullScreenElement ||
-                        document.msFullscreenElement;
-
-    if (isFullscreen) {
-        button.textContent = '⛶'; // Exit fullscreen icon
-        button.title = 'Exit Fullscreen Board';
-    } else {
-        button.textContent = '⛶'; // Fullscreen icon
-        button.title = 'Toggle Fullscreen Board';
+            if (validMoves.includes(destCoords)) {
+                executeGameMove(originCoords, destCoords);
+            }
+        }
     }
 }
 
@@ -997,10 +1103,120 @@ window.addEventListener('resize', () => {
     resizeTimeout = setTimeout(handleWindowResize, 300); // Increased from 250ms to 300ms
 });
 
+// Win Screen Functions
+function showWinScreen(gameState) {
+    const overlay = document.getElementById('win-screen-overlay');
+    const winnerColorSpan = document.getElementById('winner-color');
+    const movesCountSpan = document.getElementById('moves-count');
+    const durationTextSpan = document.getElementById('duration-text');
+
+    if (overlay && gameState.winner) {
+        // Set winner color
+        winnerColorSpan.textContent = gameState.winner.charAt(0).toUpperCase() + gameState.winner.slice(1);
+        winnerColorSpan.style.color = gameState.winner;
+
+        // Calculate stats
+        const totalMoves = gameState.moveHistory ? gameState.moveHistory.length : 0;
+        movesCountSpan.textContent = totalMoves;
+
+        // Calculate duration (simplified - would need proper start time tracking)
+        const now = new Date();
+        const startTime = gameStartTime || now;
+        const duration = Math.floor((now - startTime) / 1000 / 60); // minutes
+        durationTextSpan.textContent = duration > 0 ? `${duration} minutes` : 'Less than a minute';
+
+        // Show overlay
+        overlay.style.display = 'flex';
+
+        // Trigger confetti animation
+        triggerConfetti();
+    }
+}
+
+function hideWinScreen() {
+    const overlay = document.getElementById('win-screen-overlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
+}
+
+// Confetti animation function
+function triggerConfetti() {
+    const confettiOptions = {
+        zIndex: 10001, // Ensure confetti appears above win screen overlay (overlay is z-index: 10000)
+        colors: ['#ff6b6b', '#48ff48', '#ffff6b', '#6bbcff', '#5a5a5a', '#ffffff']
+    };
+
+    // First burst - from top
+    confetti({
+        ...confettiOptions,
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.1, x: 0.5 }
+    });
+
+    // Second burst - from left
+    setTimeout(() => {
+        confetti({
+            ...confettiOptions,
+            particleCount: 80,
+            angle: 60,
+            spread: 55,
+            origin: { x: 0, y: 0.5 }
+        });
+    }, 200);
+
+    // Third burst - from right
+    setTimeout(() => {
+        confetti({
+            ...confettiOptions,
+            particleCount: 80,
+            angle: 120,
+            spread: 55,
+            origin: { x: 1, y: 0.5 }
+        });
+    }, 400);
+
+    // Fourth burst - center
+    setTimeout(() => {
+        confetti({
+            ...confettiOptions,
+            particleCount: 120,
+            spread: 90,
+            origin: { y: 0.4, x: 0.5 }
+        });
+    }, 600);
+
+    // Final celebration burst
+    setTimeout(() => {
+        confetti({
+            ...confettiOptions,
+            particleCount: 150,
+            spread: 100,
+            origin: { y: 0.6, x: 0.5 }
+        });
+    }, 800);
+}
+
+// Win Screen Event Listeners
+document.getElementById('play-again-btn').addEventListener('click', () => {
+    hideWinScreen();
+    // Create new game with same player count
+    const playerCount = currentGameState ? currentGameState.maxPlayers : 6;
+    createNewGame(playerCount);
+});
+
+document.getElementById('leave-game-win-btn').addEventListener('click', () => {
+    hideWinScreen();
+    leaveGame();
+});
+
 // Initial setup
 document.addEventListener('DOMContentLoaded', () => {
     handleWindowResize();
 });
+
+
 
 // --- START THE APP ---
 setupAuthListener();
