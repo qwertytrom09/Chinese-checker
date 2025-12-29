@@ -24,7 +24,7 @@ try {
     const analytics = getAnalytics(app);
     db = getDatabase(app);
     auth = getAuth(app);
-    console.log('Firebase initialized successfully');
+    
 } catch (error) {
     console.error('Firebase initialization failed:', error);
 }
@@ -141,8 +141,8 @@ document.getElementById('logout-button').addEventListener('click', () => {
 // --- 3. GAME MANAGEMENT (LOBBY) ---
 
 async function createNewGame(maxPlayers = 6) {
-    console.log('createNewGame called with maxPlayers:', maxPlayers);
-    console.log('currentUser:', currentUser);
+    
+    
     if (!currentUser) {
         console.error("Not authenticated.");
         return;
@@ -165,13 +165,13 @@ async function createNewGame(maxPlayers = 6) {
             hideMoves: false
         };
 
-        console.log('Creating game with state:', initialGameState);
-        console.log('Attempting to add game to Realtime Database...');
+        
+        
         const newGameRef = push(ref(db, "games"), initialGameState);
         const gameId = newGameRef.key;
-        console.log('Game created with ID:', gameId);
+        
         joinGame(gameId);
-        console.log(`Game ${gameId} created and joined.`);
+        
 
     } catch (e) {
         console.error("Error creating new game: ", e);
@@ -267,10 +267,6 @@ function handleGameUpdate(gameState) {
     // Handle win screen
     if (gameState.status === 'finished' && gameState.winner) {
         document.body.classList.add('game-won');
-        // Exit fake fullscreen when game ends
-        if (isFakeFullscreen) {
-            exitFakeFullscreen(document.getElementById('game-board-container'));
-        }
         showWinScreen(gameState);
     } else {
         document.body.classList.remove('game-won');
@@ -372,7 +368,7 @@ function generatePegMap() {
         map.set(key, { q, r });
     });
 
-    console.log(`Original star board created with ${map.size} holes (defined hole by hole).`);
+    
     return map;
 }
 
@@ -637,13 +633,6 @@ function drawBoard(boardState, selectedPieceCoords) {
 
     // Draw to main board
     drawBoardToSvg(svg, boardState, selectedPieceCoords);
-
-    // Also update fullscreen board if it exists
-    const fullscreenSvg = document.getElementById('fake-fullscreen-board-svg');
-    if (fullscreenSvg) {
-        fullscreenSvg.innerHTML = '';
-        drawBoardToSvg(fullscreenSvg, boardState, selectedPieceCoords);
-    }
 }
 
 
@@ -775,7 +764,7 @@ async function executeGameMove(origin, destination) {
 }
 
 document.getElementById('create-game-btn').addEventListener('click', () => {
-    console.log('Create game button clicked');
+    
     const playerCount = parseInt(document.getElementById('player-count-select').value);
     createNewGame(playerCount);
 });
@@ -794,21 +783,39 @@ document.getElementById('leave-game-btn').addEventListener('click', leaveGame);
 document.getElementById('copy-link-btn').addEventListener('click', () => {
     if (currentGameId) {
         const gameUrl = `${window.location.origin}${window.location.pathname}?game=${currentGameId}`;
-        navigator.clipboard.writeText(gameUrl).then(() => {
-            alert('Game link copied to clipboard!');
-        }).catch(err => {
-            console.error('Failed to copy link:', err);
-            // Fallback for older browsers
-            const textArea = document.createElement('textarea');
-            textArea.value = gameUrl;
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
-            alert('Game link copied to clipboard!');
-        });
+
+        // Check if clipboard API is available (requires HTTPS)
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(gameUrl).then(() => {
+                alert('Game link copied to clipboard!');
+            }).catch(err => {
+                console.error('Failed to copy link:', err);
+                fallbackCopyTextToClipboard(gameUrl);
+            });
+        } else {
+            fallbackCopyTextToClipboard(gameUrl);
+        }
     }
 });
+
+function fallbackCopyTextToClipboard(text) {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    textArea.style.top = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+        document.execCommand('copy');
+        alert('Game link copied to clipboard!');
+    } catch (err) {
+        console.error('Fallback copy failed:', err);
+        alert('Failed to copy link. Please copy manually: ' + text);
+    }
+    document.body.removeChild(textArea);
+}
 
 document.getElementById('fullscreen-board-btn').addEventListener('click', () => {
     toggleBoardFullscreen();
@@ -820,146 +827,56 @@ document.getElementById('hide-moves-toggle').addEventListener('change', (e) => {
     }
 });
 
-// --- FAKE FULLSCREEN BOARD FUNCTIONALITY ---
-
-let isFakeFullscreen = false;
+// --- TRUE FULLSCREEN BOARD FUNCTIONALITY ---
 
 function toggleBoardFullscreen() {
     const boardContainer = document.getElementById('game-board-container');
-    const boardElement = document.getElementById('chinese-checkers-board');
-    const button = document.getElementById('fullscreen-board-btn');
 
-    if (!boardContainer || !boardElement) return;
-
-    if (isFakeFullscreen) {
-        // Exit fake fullscreen
-        exitFakeFullscreen(boardContainer);
-        button.textContent = '⛶'; // Fullscreen icon
-        button.title = 'Toggle Fake Fullscreen Board';
-        isFakeFullscreen = false;
-    } else {
-        // Enter fake fullscreen
-        enterFakeFullscreen(boardContainer);
-        button.textContent = '⛶'; // Exit fullscreen icon (same symbol, different context)
-        button.title = 'Exit Fake Fullscreen Board';
-        isFakeFullscreen = true;
-    }
-}
-
-function enterFakeFullscreen(container) {
-    // Create overlay
-    const overlay = document.createElement('div');
-    overlay.className = 'fake-fullscreen-overlay';
-    overlay.id = 'fake-fullscreen-overlay';
-
-    // Clone only the SVG board for fullscreen (not the entire container)
-    const boardElement = container.querySelector('#chinese-checkers-board');
-    const fullscreenBoard = boardElement.cloneNode(true);
-    fullscreenBoard.id = 'fake-fullscreen-board-svg';
-    fullscreenBoard.setAttribute('class', 'fake-fullscreen-board-svg');
-
-    // Add click event listener to the fullscreen board for game interactions
-    fullscreenBoard.addEventListener('click', handleFullscreenBoardClick);
-
-    // Add close button to fullscreen
-    const closeBtn = document.createElement('button');
-    closeBtn.textContent = '✕';
-    closeBtn.style.cssText = `
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        background: rgba(0, 0, 0, 0.8);
-        color: white;
-        border: none;
-        border-radius: 50%;
-        width: 40px;
-        height: 40px;
-        font-size: 20px;
-        cursor: pointer;
-        z-index: 10000;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    `;
-    closeBtn.onclick = () => toggleBoardFullscreen();
-
-    // Add turn indicator
-    const turnIndicator = document.createElement('div');
-    turnIndicator.id = 'fullscreen-turn-indicator';
-    turnIndicator.textContent = `Turn: ${currentGameState.turn}`;
-    turnIndicator.style.color = currentGameState.turn;
-
-    overlay.appendChild(fullscreenBoard);
-    overlay.appendChild(closeBtn);
-    overlay.appendChild(turnIndicator);
-    document.body.appendChild(overlay);
-
-    // Prevent body scroll
-    document.body.style.overflow = 'hidden';
-}
-
-function exitFakeFullscreen(container) {
-    const overlay = document.getElementById('fake-fullscreen-overlay');
-    if (overlay) {
-        overlay.remove();
-    }
-    document.body.style.overflow = '';
-}
-
-// Handle escape key to exit fake fullscreen
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && isFakeFullscreen) {
-        toggleBoardFullscreen();
-    }
-});
-
-// Handle click on overlay to exit fake fullscreen
-document.addEventListener('click', (e) => {
-    if (e.target.id === 'fake-fullscreen-overlay' && isFakeFullscreen) {
-        toggleBoardFullscreen();
-    }
-});
-
-// Handle clicks on the fullscreen board
-function handleFullscreenBoardClick(event) {
-    if (!currentGameState || currentGameState.status !== 'in-progress' || !currentUser) return;
-
-    const target = event.target;
-    const currentPlayerColor = currentGameState.players.find(p => p.userId === currentUser.uid)?.color;
-    const isPlayerTurn = currentPlayerColor === currentGameState.turn;
-    const isSinglePlayerGame = currentGameState.players.length === 1; // Allow playing any color in single player
-
-    if (!isPlayerTurn && !isSinglePlayerGame) {
+    if (!document.fullscreenEnabled) {
+        alert('Fullscreen is not supported by your browser.');
         return;
     }
 
-    // 1. Piece Selection
-    if (target.classList.contains('game-piece')) {
-        const pieceColor = target.classList.item(1).replace('piece-', '');
-
-        // Allow selecting any piece if single player, or only your color pieces
-        if (isSinglePlayerGame || pieceColor === currentPlayerColor) {
-            const coords = target.dataset.coords;
-            const newSelection = currentGameState.selectedPiece === coords ? null : coords;
-
-            update(ref(db, "games/" + currentGameId), { selectedPiece: newSelection });
-        }
-    }
-
-    // 2. Move Execution
-    else if (target.classList.contains('move-highlight') || target.classList.contains('peg')) {
-        const destCoords = target.dataset.coords;
-        const originCoords = currentGameState.selectedPiece;
-
-        if (originCoords) {
-            const validMoves = calculateValidMoves(originCoords, currentGameState.boardState);
-
-            if (validMoves.includes(destCoords)) {
-                executeGameMove(originCoords, destCoords);
-            }
-        }
+    if (document.fullscreenElement) {
+        // Exit fullscreen
+        document.exitFullscreen();
+    } else {
+        // Enter fullscreen on just the board container
+        boardContainer.requestFullscreen();
     }
 }
+
+function updateFullscreenButton() {
+    const button = document.getElementById('fullscreen-board-btn');
+
+    if (document.fullscreenElement) {
+        button.textContent = '⛶'; // Exit fullscreen icon
+        button.title = 'Exit Fullscreen';
+    } else {
+        button.textContent = '⛶'; // Fullscreen icon
+        button.title = 'Enter Fullscreen';
+    }
+}
+
+// Handle fullscreen change events
+document.addEventListener('fullscreenchange', () => {
+    updateFullscreenButton();
+
+    // Update board scaling when entering/exiting fullscreen
+    setTimeout(() => {
+        handleWindowResize();
+    }, 100);
+});
+
+// Handle F11 key for fullscreen
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'F11') {
+        e.preventDefault();
+        toggleBoardFullscreen();
+    }
+});
+
+
 
 document.getElementById('chinese-checkers-board').addEventListener('click', (event) => {
     if (!currentGameState || currentGameState.status !== 'in-progress' || !currentUser) return;

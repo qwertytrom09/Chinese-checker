@@ -668,43 +668,51 @@ p {
     min-height: 200px;
 }
 
-/* Fake fullscreen styles */
-.fake-fullscreen-overlay {
-    position:fixed;
-    top: 0;
-    left: 0;
+/* Fullscreen styles for game board container */
+#game-board-container:fullscreen {
+    background: var(--bg-primary);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
     width: 100vw;
     height: 100vh;
-    background: rgba(0, 0, 0, 0.9);
-    z-index: 5000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    backdrop-filter: blur(5px);
 }
 
-.fake-fullscreen-board-svg {
-    width: 150vw;
-    height: 90vh;
-    max-width: 150vw;
-    max-height: 150vh;
-    display: block;
-}
-
-#fullscreen-turn-indicator {
+#game-board-container:fullscreen #game-info {
     position: absolute;
     top: 20px;
-    left: 20px;
+    right: 20px;
+    margin: 0;
+    z-index: 1000;
     background: rgba(0, 0, 0, 0.8);
-    color: white;
-    padding: 10px 15px;
-    border-radius: 8px;
-    font-size: 1.2rem;
-    font-weight: 600;
-    z-index: 10001;
     backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    border-radius: 12px;
+    padding: 15px 20px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    max-width: 300px;
+}
+
+#game-board-container:fullscreen #chinese-checkers-board {
+    width: 95vw;
+    height: 90vh;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+}
+
+#game-board-container:fullscreen #chinese-checkers-board svg {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
 }
 /* Dynamic viewport handling */
 @media screen and (max-height: 600px) {
